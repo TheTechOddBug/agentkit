@@ -86,6 +86,10 @@ class TelegramAdapter(BusParticipant):
     # ── BusParticipant interface ────────────────────────────────────
 
     def is_intended_for_me(self, message: Message) -> bool:
+        # Match if addressed directly to us (e.g. to="telegram-megu")
+        if message.to == self.name:
+            return True
+        # Match if from our agent and addressed to a telegram chat
         src = message.source.lower().removeprefix("bridge:")
         agent = self.tc.agent_name.lower()
         if not (src == agent or src == f"harness:{agent}" or src.startswith(f"{agent}:")):
@@ -103,6 +107,9 @@ class TelegramAdapter(BusParticipant):
             self._seen.clear()
 
         chat_id = self._chat_id_from_to(message.to)
+        if chat_id is None and message.to == self.name:
+            # Agent replied to us by name — send to default chat (first allowed)
+            chat_id = next(iter(self.tc.allowed_chat_ids), None)
         if chat_id is None:
             return
         if self.tc.allowed_chat_ids and chat_id not in self.tc.allowed_chat_ids:
@@ -225,10 +232,7 @@ class TelegramAdapter(BusParticipant):
             if not text:
                 content_data["text"] = f"User sent a file: {file_path}"
 
-        await self.send(
-            to=self.tc.agent_name,
-            content=content_data,
-        )
+        await self._send_as_chat(chat.id, self.tc.agent_name, content_data)
         await context.bot.send_chat_action(chat_id=chat.id, action="typing")
         log.info("Inbound chat_id=%s text=%s", chat.id, text[:80])
 
@@ -272,10 +276,7 @@ class TelegramAdapter(BusParticipant):
                 return
 
             self._voice_chats.add(chat.id)
-            await self.send(
-                to=self.tc.agent_name,
-                content={"text": text, "voice": True},
-            )
+            await self._send_as_chat(chat.id, self.tc.agent_name, {"text": text, "voice": True})
             await context.bot.send_chat_action(chat_id=chat.id, action="typing")
             log.info("Voice chat_id=%s text=%s", chat.id, text[:80])
 
@@ -293,10 +294,7 @@ class TelegramAdapter(BusParticipant):
         new_emojis = [r.emoji for r in (reaction.new_reaction or []) if hasattr(r, "emoji")]
         if not new_emojis:
             return
-        await self.send(
-            to=self.tc.agent_name,
-            content={"text": f"[reaction: {' '.join(new_emojis)}]", "reaction": new_emojis},
-        )
+        await self._send_as_chat(reaction.chat.id, self.tc.agent_name, {"text": f"[reaction: {' '.join(new_emojis)}]", "reaction": new_emojis})
 
     async def _cmd_start(self, update, context) -> None:
         if update.message:
@@ -314,9 +312,23 @@ class TelegramAdapter(BusParticipant):
         if chat is None or (self.tc.allowed_chat_ids and chat.id not in self.tc.allowed_chat_ids):
             return
         full_text = (update.message.text or "").strip() if update.message else ""
-        await self.send(to=self.tc.agent_name, content={"text": full_text})
+        await self._send_as_chat(chat.id, self.tc.agent_name, {"text": full_text})
 
     # ── Helpers ─────────────────────────────────────────────────────
+
+    async def _send_as_chat(self, chat_id: int, to: str, content: str | dict) -> None:
+        """Send to bus with source=telegram:{chat_id} so agent knows where to reply."""
+        import json as _json
+        if isinstance(content, dict):
+            content = _json.dumps(content, ensure_ascii=False)
+        from networkkit.messages import Message as _Msg, MessageType as _MT
+        msg = _Msg(
+            source=self._source_for_chat(chat_id),
+            to=to,
+            content=content,
+            message_type=_MT.CHAT,
+        )
+        await self._http_send(msg)
 
     async def _send_voice(self, chat_id: int, text: str) -> None:
         """TTS and send voice message."""
