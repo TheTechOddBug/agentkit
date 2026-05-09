@@ -1,23 +1,22 @@
 [tool.poetry]
 name = "agentkit"
-version = "0.0.2"
-description = "A simple framework for creating distributed llm agent swarms"
+version = "0.1.0"
+description = "SDK for building networkkit bus participants — adapters, bridges, and services"
 readme = "README.md"
 license = "MIT"
 authors = ["Vikram Kumar <vik@japanvik.net>"]
-keywords = ["artificial intelligence", "agent frameworks", "llm"]
+keywords = ["agents", "message bus", "networkkit", "sdk"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 3 - Alpha",
   "Programming Language :: Python"
 ]
 
 [tool.poetry.dependencies]
 python = ">=3.10"
 networkkit = ">=0.0.2"
-litellm = "*"
 python-dotenv = "*"
-rich = "*"
-mcp = "^1.14"
+aiohttp = "*"
+pyzmq = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
@@ -26,6 +25,9 @@ pytest-cov = "^4.1.0"
 
 [tool.poetry.urls]
 Repository = "https://github.com/japanvik/agentkit"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
