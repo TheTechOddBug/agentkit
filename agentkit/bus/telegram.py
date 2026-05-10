@@ -90,7 +90,7 @@ class TelegramAdapter(BusParticipant):
         if message.to == self.name:
             return True
         # Match if from our agent and addressed to a telegram chat
-        src = message.source.lower().removeprefix("bridge:")
+        src = message.source.lower().removeprefix("router:")
         agent = self.tc.agent_name.lower()
         if not (src == agent or src == f"harness:{agent}" or src.startswith(f"{agent}:")):
             return False

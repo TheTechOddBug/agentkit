@@ -19,6 +19,7 @@ class BusConfig:
     description: str = ""
     pid_dir: Path = field(default_factory=lambda: Path.home() / ".local" / "share" / "agentkit" / "pids")
     log_level: str = "INFO"
+    helo_interval: int = 30
 
     @classmethod
     def from_env(cls, name: str | None = None, dotenv_path: str | None = None) -> BusConfig:

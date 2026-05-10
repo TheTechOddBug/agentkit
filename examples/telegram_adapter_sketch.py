@@ -31,7 +31,7 @@ class TelegramAdapter(BusParticipant):
         self.bot = None  # initialized in on_start
 
     def is_intended_for_me(self, message: Message) -> bool:
-        src = message.source.lower().removeprefix("bridge:")
+        src = message.source.lower().removeprefix("router:")
         agent = self.agent_name.lower()
         if not (src == agent or src.startswith(f"{agent}:")):
             return False

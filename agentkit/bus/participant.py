@@ -143,11 +143,25 @@ class BusParticipant(ABC):
         log.info("%s running (http=%s zmq=%s)", self.name, self.config.bus_http_url, self.config.bus_zmq_address)
         self._running = True
 
+        # Start HELO beacon
+        self._beacon_task = asyncio.create_task(self._helo_beacon())
+
         # Message loop
         try:
             await self._message_loop()
         finally:
+            self._beacon_task.cancel()
             await self._shutdown()
+
+    async def _helo_beacon(self) -> None:
+        """Periodically re-send HELO to keep routing table entries fresh."""
+        while self._running:
+            await asyncio.sleep(self.config.helo_interval)
+            if self._running:
+                try:
+                    await self.send_helo()
+                except Exception:
+                    log.debug("HELO beacon failed (will retry)")
 
     async def _connect(self) -> None:
         import aiohttp
